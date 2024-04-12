@@ -1,0 +1,96 @@
+from scipy.optimize import linprog
+from scipy.optimize import minimize_scalar
+from sympy import *
+
+#f = lambda x: -4*x[0] - 6*x[1] - 2*x[0]*x[1] + 2 * x[0]**2 + 2*x[1]**2
+
+#g1 = lambda x: x[0] + x[1] - 2
+#g2 = lambda x: x[0] + 5*x[1] - 5
+#g3 = lambda x: -x[0]
+#g4 = lambda x: -x[1]
+#eps = 1e-4
+
+#d = {
+    #g1 : [[1, 1], [2]],
+    #g2 : [[1, 5], [5]],
+    #g3 : [[-1, 0], [0]],
+    #g4 : [[0, -1], [0]]
+#}
+
+f = lambda x: - 10*x[1] - 2*x[0]*x[1] + 6 * x[0]**2 + x[1]**2
+
+g1 = lambda x: 2*x[0] + x[1] - 5
+g2 = lambda x: -2*x[0] - x[1] + 2
+g3 = lambda x: -x[0]
+g4 = lambda x: -x[1]
+eps = 1e-2
+
+d = {
+    g1 : [[2, 1], [5]],
+    g2 : [[-2, -1], [-2]],
+    g3 : [[-1, 0], [0]],
+    g4 : [[0, -1], [0]]
+}
+
+x0 = np.array([0, 4])
+
+#def grad_f(f, x):
+  #dfdx = 4*x[0] - 2*x[1] - 4
+  #dfdy = -2*x[0] + 4*x[1] - 6
+  #return np.array([dfdx, dfdy])
+
+def grad_f(f, x):
+  dfdx = 12*x[0] - 2*x[1]
+  dfdy = -2*x[0] + 2*x[1] - 10
+  return np.array([dfdx, dfdy])
+
+def search_a_max(A2, b2, s, x):
+  b_new = b2 - A2 @ x
+  s_new = A2 @ s
+  massive = []
+  for i in range(0, 2):
+    if(s_new[i] > 0):
+      massive.append(b_new[i]/s_new[i])
+  if(len(massive) == 0):
+    a_max = 99999
+  else:
+    a_max = np.min(massive)
+  return a_max
+
+def override(x):
+  A1 = []
+  A2 = []
+  b1 = []
+  b2 = []
+  for constraint in d:
+    if(abs(constraint(x)) < eps):
+      A1.append(d[constraint][0])
+      b1.append(0)
+    else:
+      A2.append(d[constraint][0])
+      b2.append(d[constraint][1])
+  A1 = np.array(A1)
+  b1 = np.array(b1)
+  A2 = np.array(A2)
+  b2 = np.array(b2)
+  return A1, A2, b1, b2
+
+def mz(x0):
+  x = x0
+  A1, A2, b1, b2 = override(x)
+  while True:
+    c = grad_f(f, x)
+    s0_bounds = [-1, 1]
+    s1_bounds = [-1, 1]
+    res = linprog(c, A_ub=A1, b_ub=b1, bounds=[s0_bounds, s1_bounds])
+    s = res.x
+    if(abs(c.T @ s) < eps):
+      print(x)
+      break
+    a_max = search_a_max(A2, b2, s, x)
+    res = minimize_scalar(lambda alpha: f(x + alpha * s), bounds=(0, a_max), method='bounded')
+    alpha = res.x
+    x = x + s*alpha
+    print(x)
+    A1, A2, b1, b2 = override(x)
+mz(x0)
